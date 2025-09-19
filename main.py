@@ -5,7 +5,9 @@ import tempfile
 import os
 import wandb
 import hydra
+from pathlib import Path
 from omegaconf import DictConfig
+from hydra.utils import get_original_cwd
 
 _steps = [
     "download",
@@ -51,18 +53,20 @@ def go(config: DictConfig):
             )
 
         if "basic_cleaning" in active_steps:
+            step_path = str(Path(get_original_cwd()) / "src" / "basic_cleaning")
             _ = mlflow.run(
-                f"{config['main']['components_repository']}/get_data",
+                step_path,
                 "main",
                 parameters={
-                    "sample": config["etl"]["sample"],
-                    "artifact_name": "sample.csv",
-                    "artifact_type": "raw_data",
-                    "artifact_description": "Raw file as downloaded"
+                    "input_artifact": "sample.csv:latest",
+                    "output_artifact": "clean_sample.csv",
+                    "output_type": "clean_sample",
+                    "output_description": "Cleaned data",
+                    "min_price": config["etl"]["min_price"],
+                    "max_price": config["etl"]["max_price"],
                 },
+                env_manager="local",
             )
-
-            pass
 
         if "data_check" in active_steps:
             ##################
