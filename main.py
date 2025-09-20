@@ -84,35 +84,62 @@ def go(config: DictConfig):
             )
 
 
-        if "data_split" in active_steps:
-            ##################
-            # Implement here #
-            ##################
-            pass
+        if "data_split" in active_steps or "train_val_test_split" in active_steps:
+            step_path = f"{config['main']['components_repository']}/train_val_test_split"
+            _ = mlflow.run(
+                step_path,
+                "main",
+                parameters={
+                    "input": "clean_sample.csv:latest",
+                    "test_size": str(config["modeling"]["test_size"]),
+                    "random_seed": str(config["modeling"]["random_seed"]),
+                    "stratify_by": config["modeling"]["stratify_by"],
+                },
+                env_manager="conda",  
+            )
+
 
         if "train_random_forest" in active_steps:
-
-            # NOTE: we need to serialize the random forest configuration into JSON
+    # NOTE: we need to serialize the random forest configuration into JSON
             rf_config = os.path.abspath("rf_config.json")
             with open(rf_config, "w+") as fp:
                 json.dump(dict(config["modeling"]["random_forest"].items()), fp)  # DO NOT TOUCH
 
-            # NOTE: use the rf_config we just created as the rf_config parameter for the train_random_forest
-            # step
+            # Run training step
+            step_path = str(Path(get_original_cwd()) / "src" / "train_random_forest")
+            _ = mlflow.run(
+                step_path,
+                "main",
+                parameters={
+                    "trainval_artifact": "trainval_data.csv:latest",
+                    "val_size": config["modeling"]["val_size"],
+                    "random_seed": config["modeling"]["random_seed"],
+                    "stratify_by": config["modeling"]["stratify_by"],
+                    "max_tfidf_features": config["modeling"]["max_tfidf_features"],
+                    "rf_config": rf_config,
+                    "output_artifact": "random_forest_export",
+                },
+                env_manager="local",
+            )
 
             ##################
-            # Implement here #
-            ##################
-
-            pass
 
         if "test_regression_model" in active_steps:
+            step_path = f"{config['main']['components_repository']}/test_regression_model"
+            print(f"Using test_regression_model step from: {step_path}")
+            _ = mlflow.run(
+                step_path,
+                "main",
+                parameters={
+                    "mlflow_model": "random_forest_export:prod",
+                    "test_dataset": "test_data.csv:latest",
+                },
+                env_manager="conda",
+            )
 
-            ##################
-            # Implement here #
-            ##################
 
-            pass
+
+
 
 
 if __name__ == "__main__":
